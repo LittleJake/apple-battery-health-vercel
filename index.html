@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta>
+        <title>Apple Battery Health Checker</title>
+    </head>
+    <body>
+        <p>选择Analytics-开头文件(Please input log file start with 'Analytics-')：</p>
+        <input type="file" id="log" />
+        <p>隐私声明：所有日志数据均在本地进行处理，无上传外泄风险。</p>
+        <p>Privacy notice: All log data procceed locally. No upload.</p>
+        <a href="https://github.com/LittleJake/apple-battery-health-vercel">
+            <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/LittleJake/apple-battery-health-vercel?style=social">
+        </a>
+        <script>
+
+            var input = document.getElementById('log');
+            
+            input.addEventListener('change', (event) => {
+                
+                function parseData(data){
+                    if (!data || !data.name) return;
+
+                    if (data.name == 'BatteryConfigValueHistogram_Final') {
+                        let result = {
+                            CycleCount: data.message.last_value_CycleCount,
+                            AppleRawMaxCapacity: data.message.last_value_AppleRawMaxCapacity,
+                            NominalChargeCapacity: data.message.last_value_NominalChargeCapacity,
+                            MaximumCapacityPercent: data.message.last_value_MaximumCapacityPercent,
+                            BatterySerialChanged: data.message.last_value_BatterySerialChanged,
+                            UpdateTime: data.message.last_value_UpdateTime
+                        };
+                        
+                        alert(
+                            "循环次数(CycleCount):" + result.CycleCount + "次" + "\n" +
+                            "苹果识别容量(AppleRawMaxCapacity):" + result.AppleRawMaxCapacity + "mAh" + "\n" +
+                            "实际充电容量(NominalChargeCapacity):" + result.NominalChargeCapacity + "mAh" + "\n" +
+                            "苹果健康度(MaximumCapacityPercent):" + result.MaximumCapacityPercent + "%" + "\n" +
+                            "是否更换电池(BatterySerialChanged):" + (result.BatterySerialChanged?"Yes":"No") + "\n" +
+                            "检测时间(UpdateTime):" + (new Date(result.UpdateTime * 1000)) + "\n"
+                        );
+                        return;
+                    }
+                }
+
+                // console.log(event);
+                
+                let reader = new FileReader();
+
+                reader.onerror = (event) => {
+                    console.error(event);
+                    alert("Read error.");
+                };
+
+                reader.onload = (event) => {
+                    let result = event.target.result.toString();
+                    // console.log(event);
+                    // console.log(event.target.result);
+                    result.split("\n").forEach(element => {
+                        if (element.trim() == '') return;
+                        try {
+                            let data = JSON.parse(element.trim());
+                            parseData(data);
+                            // console.log(element);
+                        } catch(err) {
+                            console.log(element.trim());
+                            console.error(err);
+                            alert(err.message);
+                            throw err;   
+                        }
+                    });
+                };
+
+                let file = event.target.files[0];
+
+                reader.readAsText(file, 'utf-8');
+            });
+        </script>
+    </body>
+</html>
