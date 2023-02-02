@@ -5,7 +5,8 @@
         <title>Apple Battery Health Checker</title>
     </head>
     <body>
-        <p>选择Analytics-开头文件(Please input log file start with 'Analytics-')：</p>
+        <p>选择(iOS16)Analytics-或(&lt;iOS16)log-aggregated开头文件</p>
+        <p>(Please input log file start with (iOS16)'Analytics-' or (&lt;iOS16)'log-aggregated')：</p>
         <input type="file" id="log" />
         <p>隐私声明：所有日志数据均在本地进行处理，无上传外泄风险。</p>
         <p>Privacy notice: All log data procceed locally. No upload.</p>
@@ -13,13 +14,12 @@
             <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/LittleJake/apple-battery-health-vercel?style=social">
         </a>
         <script>
-
             var input = document.getElementById('log');
             
             input.addEventListener('change', (event) => {
                 
-                function parseData(data){
-                    if (!data || !data.name) return;
+                function parseJsonData(data){
+                    if (!data || !data.name) return false;
 
                     if (data.name == 'BatteryConfigValueHistogram_Final') {
                         let result = {
@@ -39,12 +39,11 @@
                             "是否更换电池(BatterySerialChanged):" + (result.BatterySerialChanged?"Yes":"No") + "\n" +
                             "检测时间(UpdateTime):" + (new Date(result.UpdateTime * 1000)) + "\n"
                         );
-                        return;
+                        return true;
                     }
+                    return false;
                 }
 
-                // console.log(event);
-                
                 let reader = new FileReader();
 
                 reader.onerror = (event) => {
@@ -53,22 +52,49 @@
                 };
 
                 reader.onload = (event) => {
-                    let result = event.target.result.toString();
-                    // console.log(event);
-                    // console.log(event.target.result);
-                    result.split("\n").forEach(element => {
-                        if (element.trim() == '') return;
+                    var result = event.target.result.toString();
+                    try{
+                        // for Analytic-*
                         try {
-                            let data = JSON.parse(element.trim());
-                            parseData(data);
-                            // console.log(element);
+                            result.split("\n").forEach(element => {
+                                if (element.trim() == '') return;
+                                try {
+                                    let data = JSON.parse(element.trim());
+                                    parseJsonData(data);
+                                } catch(err) {
+                                    console.log(element.trim());
+                                    console.error(err);
+                                    alert(err.message);
+                                    throw err;
+                                }
+                            });
                         } catch(err) {
-                            console.log(element.trim());
                             console.error(err);
-                            alert(err.message);
-                            throw err;   
-                        }
-                    });
+                        } 
+
+                        //for log-aggregated
+                        let re_cycle_count = /<key>com\.apple\.power\.battery\.cycle_count<\/key>\s+<integer>(\d+)<\/integer>/g;
+                        let re_design_capacity = /<key>com\.apple\.power\.battery\.design_capacity<\/key>\s+<integer>(\d+)<\/integer>/g;
+                        let re_raw_max_capacity = /<key>com\.apple\.power\.battery\.raw_max_capacity<\/key>\s+<integer>(\d+)<\/integer>/g;
+                        
+                        result = result.slice(result.indexOf('<key>com.apple.power.battery.cycle_count</key>'));
+
+                        result = {
+                            CycleCount: re_cycle_count.exec(result)[1],
+                            AppleRawMaxCapacity:  re_raw_max_capacity.exec(result)[1],
+                            DesignCapacity: re_design_capacity.exec(result)[1]
+                        };
+
+                        alert(
+                            "循环次数(CycleCount):" + result.CycleCount + "次" + "\n" +
+                            "苹果识别容量(AppleRawMaxCapacity):" + result.AppleRawMaxCapacity + "mAh" + "\n" +
+                            "苹果设计容量(DesignCapacity):" + result.DesignCapacity  + "mAh" + "\n" +
+                            "苹果健康度(MaximumCapacityPercent):" + result.AppleRawMaxCapacity*100.0/result.DesignCapacity + "%" + "\n"
+                        );
+                    } catch (err) {
+                        alert(err);
+                        alert("No result.");
+                    }
                 };
 
                 let file = event.target.files[0];
